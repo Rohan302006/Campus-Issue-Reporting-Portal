@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Admin Login — Campus Portal</title>
+  <link rel="stylesheet" href="../css/styles.css"/>
+</head>
+<body>
+<div class="login-page">
+
+  <div class="login-hero">
+    <div class="hero-badge teal-badge">🛡️ Admin Portal</div>
+    <h1 class="hero-title">Manage Campus<br><em>Operations</em></h1>
+    <p class="hero-desc">Centralised dashboard to review, prioritise, and resolve student-reported campus issues with full control.</p>
+    <div class="hero-features">
+      <div class="feature-item"><span class="feature-dot"></span>View and manage all complaints</div>
+      <div class="feature-item"><span class="feature-dot"></span>Update resolution status in real-time</div>
+      <div class="feature-item"><span class="feature-dot"></span>Filter by category, status, and search</div>
+      <div class="feature-item"><span class="feature-dot"></span>All data persisted in MySQL database</div>
+    </div>
+  </div>
+
+  <div class="login-form-area">
+    <div class="login-card fade-in-up">
+      <div class="login-card-header">
+        <h2>Admin Login</h2>
+        <p>Enter your credentials to access the admin panel</p>
+      </div>
+
+      <div id="err" class="alert alert-error"></div>
+
+      <div class="form-group">
+        <label class="form-label" for="uname">Username</label>
+        <input id="uname" class="form-control" type="text" placeholder="Enter admin username" autocomplete="off"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pass">Password</label>
+        <input id="pass" class="form-control" type="password" placeholder="Enter password"/>
+      </div>
+
+      <button class="btn btn-primary" id="login-btn">Sign In to Admin Panel</button>
+
+      <div class="login-switch">
+        <p>Student?</p>
+        <a href="index.html">Go to Student Login →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div id="toast-container"></div>
+<script src="../js/api.js"></script>
+<script>
+  // If already logged in as admin, skip login page
+  (async () => {
+    const user = await Auth.me();
+    if (user && user.role === 'ADMIN') {
+      sessionStorage.setItem('cp_user', JSON.stringify(user));
+      location.href = 'admin-dashboard.html';
+    }
+  })();
+
+  async function doLogin() {
+    const username = document.getElementById('uname').value.trim();
+    const password = document.getElementById('pass').value;
+    const errEl    = document.getElementById('err');
+    const btn      = document.getElementById('login-btn');
+    errEl.classList.remove('show');
+
+    if (!username || !password) {
+      errEl.textContent = 'Please enter both username and password.';
+      errEl.classList.add('show');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Signing in…';
+
+    try {
+      const data = await Auth.loginAdmin(username, password);
+      sessionStorage.setItem('cp_user', JSON.stringify(data));
+      location.href = 'admin-dashboard.html';
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.add('show');
+      document.getElementById('pass').value = '';
+      btn.disabled    = false;
+      btn.textContent = 'Sign In to Admin Panel';
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', doLogin);
+  document.getElementById('pass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>

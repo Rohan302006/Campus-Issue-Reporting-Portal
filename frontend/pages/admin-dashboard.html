@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Admin Dashboard — Campus Portal</title>
+  <link rel="stylesheet" href="../css/styles.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <div class="navbar-brand">
+      <div class="brand-icon teal">🛡️</div>
+      <div><span class="brand-name">Campus Portal</span><span class="brand-sub">Admin Control Panel</span></div>
+    </div>
+    <div class="navbar-user">
+      <span class="user-badge" id="user-badge">Admin</span>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container page-title-area">
+    <div>
+      <h1 class="page-title">Admin Dashboard</h1>
+      <p class="page-subtitle">Review and resolve all campus issue reports.</p>
+    </div>
+  </div>
+</div>
+
+<div class="main-content">
+  <div class="container">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card fade-in-up">
+        <div class="stat-icon navy">📋</div>
+        <div><div class="stat-number" id="s-total">—</div><div class="stat-label">Total</div></div>
+      </div>
+      <div class="stat-card fade-in-up d1">
+        <div class="stat-icon amber">⏳</div>
+        <div><div class="stat-number" id="s-pending">—</div><div class="stat-label">Pending</div></div>
+      </div>
+      <div class="stat-card fade-in-up d2">
+        <div class="stat-icon teal">🔄</div>
+        <div><div class="stat-number" id="s-progress">—</div><div class="stat-label">In Progress</div></div>
+      </div>
+      <div class="stat-card fade-in-up d3">
+        <div class="stat-icon green">✅</div>
+        <div><div class="stat-number" id="s-resolved">—</div><div class="stat-label">Resolved</div></div>
+      </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="card fade-in-up d2">
+      <div class="card-header">
+        <span class="card-title">All Complaints</span>
+        <div class="filter-bar">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search" class="form-control" placeholder="Search EN, name, description…"/>
+          </div>
+          <select id="fstatus" class="form-control" style="width:auto;min-width:130px;">
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="In_Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+          <select id="fcat" class="form-control" style="width:auto;min-width:130px;">
+            <option value="">All Categories</option>
+            <option value="Electricity">⚡ Electricity</option>
+            <option value="Water">💧 Water</option>
+            <option value="Cleanliness">🧹 Cleanliness</option>
+            <option value="WiFi">📶 WiFi</option>
+            <option value="Classroom">🏫 Classroom</option>
+            <option value="Hostel">🏠 Hostel</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="loading" class="empty-state">
+        <div class="empty-icon">⏳</div><h3 class="empty-title">Loading…</h3>
+      </div>
+
+      <div id="table-wrap" class="hidden">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>EN Number</th><th>Student</th><th>Category</th>
+                <th>Description</th><th>Image</th><th>Status</th><th>Date</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="empty" class="empty-state hidden">
+        <div class="empty-icon">📭</div>
+        <h3 class="empty-title">No complaints found</h3>
+        <p class="empty-text">No complaints match your current filters.</p>
+      </div>
+
+      <div class="pagination" id="pagination" style="display:none;">
+        <span id="page-info"></span>
+        <div class="page-buttons">
+          <button class="page-btn" id="prev-btn">‹</button>
+          <div id="page-nums" style="display:flex;gap:.35rem;"></div>
+          <button class="page-btn" id="next-btn">›</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 style="font-family:'DM Serif Display',serif;">Complaint Detail</h3>
+      <button class="modal-close" onclick="closeModal('detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3 style="font-family:'DM Serif Display',serif;color:#DC2626;">Delete Complaint</h3>
+      <button class="modal-close" onclick="closeModal('del-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--gray-600);margin-bottom:1.5rem;">
+        Are you sure you want to delete this complaint? This cannot be undone.
+      </p>
+      <div style="display:flex;gap:.75rem;">
+        <button class="btn btn-danger" id="confirm-delete-btn" style="flex:1;">Yes, Delete</button>
+        <button class="btn btn-outline" onclick="closeModal('del-modal')" style="flex:1;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="../js/api.js"></script>
+<script>
+  let currentPage = 0;
+  let totalPages  = 1;
+  let deleteId    = null;
+  let debounce;
+
+  // Guard + init
+  (async () => {
+    const user = await Auth.me();
+    if (!user || user.role !== 'ADMIN') { location.href = 'admin-login.html'; return; }
+    sessionStorage.setItem('cp_user', JSON.stringify(user));
+    document.getElementById('user-badge').textContent = user.username || 'Admin';
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await Auth.logout();
+      sessionStorage.removeItem('cp_user');
+      location.href = 'admin-login.html';
+    });
+    await Promise.all([loadStats(), load(0)]);
+  })();
+
+  async function loadStats() {
+    try {
+      const s = await ComplaintAPI.getStats();
+      document.getElementById('s-total').textContent    = s.total;
+      document.getElementById('s-pending').textContent  = s.pending;
+      document.getElementById('s-progress').textContent = s.inProgress;
+      document.getElementById('s-resolved').textContent = s.resolved;
+    } catch(e) { console.error('Stats:', e); }
+  }
+
+  async function load(page = 0) {
+    currentPage = page;
+    const search   = document.getElementById('search').value.trim();
+    const status   = document.getElementById('fstatus').value;
+    const category = document.getElementById('fcat').value;
+
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('table-wrap').classList.add('hidden');
+    document.getElementById('empty').classList.add('hidden');
+
+    try {
+      const result = await ComplaintAPI.getAll({ search, status, category, page, size: 10 });
+      totalPages   = result.totalPages;
+
+      document.getElementById('loading').classList.add('hidden');
+
+      if (!result.items.length) {
+        document.getElementById('empty').classList.remove('hidden');
+        document.getElementById('pagination').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('table-wrap').classList.remove('hidden');
+      document.getElementById('tbody').innerHTML = result.items.map(c => `
+        <tr>
+          <td style="font-size:.78rem;color:var(--gray-400);font-weight:600;">#${c.id}</td>
+          <td class="td-en">${escapeHtml(c.student_en_number)}</td>
+          <td style="white-space:nowrap;font-size:.85rem;">${escapeHtml(c.student_name || '—')}</td>
+          <td><span style="display:flex;align-items:center;gap:.3rem;white-space:nowrap;">
+            ${categoryIcon(c.category)}<span style="font-size:.83rem;">${escapeHtml(c.category)}</span>
+          </span></td>
+          <td class="td-desc"><div class="td-desc-text">${escapeHtml(c.description)}</div></td>
+          <td>
+            ${c.image_path
+              ? `<img src="${escapeHtml(c.image_path)}" style="width:46px;height:34px;object-fit:cover;border-radius:4px;border:1px solid var(--gray-100);cursor:pointer;"
+                   onclick="viewImg('${escapeHtml(c.image_path)}')" alt="img"/>`
+              : `<span style="color:var(--gray-400);font-size:.76rem;">None</span>`}
+          </td>
+          <td>
+            <select class="select-status" onchange="updateStatus(${c.id}, this.value)">
+              <option value="Pending"     ${c.status==='Pending'     ? 'selected':''}>Pending</option>
+              <option value="In_Progress" ${c.status==='In_Progress' ? 'selected':''}>In Progress</option>
+              <option value="Resolved"    ${c.status==='Resolved'    ? 'selected':''}>Resolved</option>
+            </select>
+          </td>
+          <td style="white-space:nowrap;font-size:.78rem;color:var(--gray-600);">${formatDate(c.created_at)}</td>
+          <td>
+            <div class="action-group">
+              <button class="btn btn-outline btn-sm" onclick='viewDetail(${JSON.stringify(c)})'>View</button>
+              <button class="btn btn-danger btn-sm"  onclick="askDelete(${c.id})">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      // Pagination
+      const pg = document.getElementById('pagination');
+      if (result.totalPages <= 1) { pg.style.display = 'none'; return; }
+      pg.style.display = 'flex';
+
+      const start = page * 10 + 1;
+      const end   = Math.min((page + 1) * 10, result.total);
+      document.getElementById('page-info').textContent = `Showing ${start}–${end} of ${result.total}`;
+      document.getElementById('prev-btn').disabled = page === 0;
+      document.getElementById('next-btn').disabled = result.isLast;
+
+      const nums = document.getElementById('page-nums');
+      nums.innerHTML = '';
+      const tp    = result.totalPages;
+      const range = [...new Set([0, page-1, page, page+1, tp-1])].filter(n => n >= 0 && n < tp);
+      range.forEach((n, i) => {
+        if (i > 0 && range[i] - range[i-1] > 1) {
+          const s = document.createElement('span');
+          s.textContent = '…';
+          s.style.cssText = 'padding:0 .2rem;color:var(--gray-400);';
+          nums.appendChild(s);
+        }
+        const b = document.createElement('button');
+        b.className = 'page-btn' + (n === page ? ' active' : '');
+        b.textContent = n + 1;
+        b.onclick = () => load(n);
+        nums.appendChild(b);
+      });
+
+    } catch(e) {
+      document.getElementById('loading').classList.add('hidden');
+      showToast('Failed to load complaints: ' + e.message, 'error');
+    }
+  }
+
+  document.getElementById('prev-btn').onclick = () => { if (currentPage > 0) load(currentPage - 1); };
+  document.getElementById('next-btn').onclick = () => { if (currentPage < totalPages - 1) load(currentPage + 1); };
+
+  async function updateStatus(id, status) {
+    try {
+      await ComplaintAPI.updateStatus(id, status);
+      showToast('Status updated', 'success');
+      loadStats();
+    } catch(e) {
+      showToast('Failed to update: ' + e.message, 'error');
+    }
+  }
+
+  function askDelete(id) {
+    deleteId = id;
+    openModal('del-modal');
+  }
+
+  document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+    try {
+      await ComplaintAPI.delete(deleteId);
+      closeModal('del-modal');
+      showToast('Complaint deleted', 'success');
+      loadStats();
+      load(currentPage);
+    } catch(e) {
+      showToast('Delete failed: ' + e.message, 'error');
+    }
+  });
+
+  function viewDetail(c) {
+    document.getElementById('detail-body').innerHTML = `
+      <div class="detail-grid">
+        <div class="detail-item"><label>EN Number</label>
+          <span style="font-family:monospace;font-weight:700;">${escapeHtml(c.student_en_number)}</span></div>
+        <div class="detail-item"><label>Student Name</label>
+          <span>${escapeHtml(c.student_name || '—')}</span></div>
+        <div class="detail-item"><label>Category</label>
+          <span>${categoryIcon(c.category)} ${escapeHtml(c.category)}</span></div>
+        <div class="detail-item"><label>Status</label>
+          <span>${statusBadge(c.status)}</span></div>
+        <div class="detail-item"><label>Submitted</label>
+          <span>${formatDate(c.created_at)}</span></div>
+        <div class="detail-item"><label>Last Updated</label>
+          <span>${formatDate(c.updated_at)}</span></div>
+      </div>
+      <div class="detail-item" style="margin-top:1rem;">
+        <label style="font-size:.72rem;font-weight:700;color:var(--gray-400);text-transform:uppercase;
+                      letter-spacing:.05em;display:block;margin-bottom:.4rem;">Description</label>
+        <p style="line-height:1.7;color:var(--gray-800);font-size:.9rem;">${escapeHtml(c.description)}</p>
+      </div>
+      ${c.image_path ? `
+        <div style="margin-top:1rem;">
+          <label style="font-size:.72rem;font-weight:700;color:var(--gray-400);text-transform:uppercase;
+                        letter-spacing:.05em;display:block;margin-bottom:.4rem;">Attached Image</label>
+          <img src="${escapeHtml(c.image_path)}" class="complaint-image" alt="Complaint image"/>
+        </div>` : ''}
+    `;
+    openModal('detail-modal');
+  }
+
+  function viewImg(src) {
+    document.getElementById('detail-body').innerHTML =
+      `<img src="${escapeHtml(src)}" style="width:100%;border-radius:var(--radius-sm);" alt="Complaint image"/>`;
+    openModal('detail-modal');
+  }
+
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(el =>
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); })
+  );
+
+  // Debounced filters
+  ['search','fstatus','fcat'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      clearTimeout(debounce); debounce = setTimeout(() => load(0), 300);
+    });
+    document.getElementById(id).addEventListener('change', () => load(0));
+  });
+</script>
+</body>
+</html>

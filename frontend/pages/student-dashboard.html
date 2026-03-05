@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>My Dashboard — Campus Portal</title>
+  <link rel="stylesheet" href="../css/styles.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <div class="navbar-brand">
+      <div class="brand-icon">🎓</div>
+      <div><span class="brand-name">Campus Portal</span><span class="brand-sub">Issue Reporting System</span></div>
+    </div>
+    <div class="navbar-user">
+      <span class="user-badge" id="user-badge">Student</span>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container page-title-area">
+    <div>
+      <h1 class="page-title">My Dashboard</h1>
+      <p class="page-subtitle" id="welcome-msg">Welcome back! Track and manage your complaints.</p>
+    </div>
+    <a href="submit-complaint.html" class="btn btn-accent">＋ Submit New Complaint</a>
+  </div>
+</div>
+
+<div class="main-content">
+  <div class="container">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card fade-in-up">
+        <div class="stat-icon navy">📋</div>
+        <div><div class="stat-number" id="s-total">—</div><div class="stat-label">Total</div></div>
+      </div>
+      <div class="stat-card fade-in-up d1">
+        <div class="stat-icon amber">⏳</div>
+        <div><div class="stat-number" id="s-pending">—</div><div class="stat-label">Pending</div></div>
+      </div>
+      <div class="stat-card fade-in-up d2">
+        <div class="stat-icon teal">🔄</div>
+        <div><div class="stat-number" id="s-progress">—</div><div class="stat-label">In Progress</div></div>
+      </div>
+      <div class="stat-card fade-in-up d3">
+        <div class="stat-icon green">✅</div>
+        <div><div class="stat-number" id="s-resolved">—</div><div class="stat-label">Resolved</div></div>
+      </div>
+    </div>
+
+    <!-- Complaints table -->
+    <div class="card fade-in-up d2">
+      <div class="card-header">
+        <span class="card-title">My Complaints</span>
+        <div class="search-wrap" style="max-width:270px;">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search" class="form-control" placeholder="Search complaints…"/>
+        </div>
+      </div>
+
+      <div id="table-wrap" class="hidden">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Category</th><th>Description</th>
+                <th>Status</th><th>Submitted</th><th>Updated</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="loading" class="empty-state">
+        <div class="empty-icon">⏳</div>
+        <h3 class="empty-title">Loading…</h3>
+      </div>
+
+      <div id="empty" class="empty-state hidden">
+        <div class="empty-icon">📭</div>
+        <h3 class="empty-title">No complaints yet</h3>
+        <p class="empty-text">Click <strong>Submit New Complaint</strong> to get started.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div id="toast-container"></div>
+
+<script src="../js/api.js"></script>
+<script>
+  let allComplaints = [];
+
+  // Guard: redirect if not logged in
+  (async () => {
+    const user = await Auth.me();
+    if (!user || user.role !== 'STUDENT') {
+      location.href = 'index.html'; return;
+    }
+    sessionStorage.setItem('cp_user', JSON.stringify(user));
+
+    // Set welcome message and navbar
+    document.getElementById('welcome-msg').textContent =
+      `Welcome back, ${user.name}! Track and manage your complaints.`;
+    initNavbar('index.html');
+
+    // Load data in parallel
+    await Promise.all([loadStats(), loadComplaints()]);
+  })();
+
+  async function loadStats() {
+    try {
+      const s = await ComplaintAPI.getMyStats();
+      document.getElementById('s-total').textContent    = s.total;
+      document.getElementById('s-pending').textContent  = s.pending;
+      document.getElementById('s-progress').textContent = s.inProgress;
+      document.getElementById('s-resolved').textContent = s.resolved;
+    } catch (e) {
+      console.error('Stats error:', e);
+    }
+  }
+
+  async function loadComplaints() {
+    document.getElementById('loading').classList.remove('hidden');
+    try {
+      allComplaints = await ComplaintAPI.getMy();
+      render(allComplaints);
+    } catch (e) {
+      showToast('Failed to load complaints: ' + e.message, 'error');
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('empty').classList.remove('hidden');
+    }
+  }
+
+  function render(list) {
+    document.getElementById('loading').classList.add('hidden');
+    if (!list.length) {
+      document.getElementById('table-wrap').classList.add('hidden');
+      document.getElementById('empty').classList.remove('hidden');
+      return;
+    }
+    document.getElementById('empty').classList.add('hidden');
+    document.getElementById('table-wrap').classList.remove('hidden');
+
+    document.getElementById('tbody').innerHTML = list.map(c => `
+      <tr>
+        <td style="font-size:.78rem;color:var(--gray-400);font-weight:600;">#${c.id}</td>
+        <td><span style="display:flex;align-items:center;gap:.35rem;white-space:nowrap;">
+          ${categoryIcon(c.category)}
+          <span style="font-weight:500;">${escapeHtml(c.category)}</span>
+        </span></td>
+        <td class="td-desc"><div class="td-desc-text">${escapeHtml(c.description)}</div></td>
+        <td>${statusBadge(c.status)}</td>
+        <td style="white-space:nowrap;font-size:.8rem;color:var(--gray-600);">${formatDate(c.created_at)}</td>
+        <td style="white-space:nowrap;font-size:.8rem;color:var(--gray-600);">${formatDate(c.updated_at)}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('search').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    render(allComplaints.filter(c =>
+      c.description.toLowerCase().includes(q) ||
+      c.category.toLowerCase().includes(q) ||
+      c.status.toLowerCase().includes(q)
+    ));
+  });
+</script>
+</body>
+</html>

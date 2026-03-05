@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Submit Complaint — Campus Portal</title>
+  <link rel="stylesheet" href="../css/styles.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <div class="navbar-brand">
+      <div class="brand-icon">🎓</div>
+      <div><span class="brand-name">Campus Portal</span><span class="brand-sub">Issue Reporting System</span></div>
+    </div>
+    <div class="navbar-user">
+      <span class="user-badge" id="user-badge">Student</span>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container page-title-area">
+    <div>
+      <h1 class="page-title">Submit Complaint</h1>
+      <p class="page-subtitle">Report a campus issue — we'll get it resolved.</p>
+    </div>
+    <a href="student-dashboard.html" class="btn btn-outline">← Back to Dashboard</a>
+  </div>
+</div>
+
+<div style="padding:2rem 0 4rem;">
+  <div class="container">
+    <div class="card submit-card fade-in-up">
+      <div class="card-header">
+        <span class="card-title">New Issue Report</span>
+        <span style="font-size:.8rem;color:var(--gray-400);">Fields marked * are required</span>
+      </div>
+      <div class="card-body">
+        <div id="success" class="alert alert-success"></div>
+        <div id="err"     class="alert alert-error"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="cat">Issue Category *</label>
+          <select id="cat" class="form-control">
+            <option value="">— Select a category —</option>
+            <option value="Electricity">⚡ Electricity</option>
+            <option value="Water">💧 Water</option>
+            <option value="Cleanliness">🧹 Cleanliness</option>
+            <option value="WiFi">📶 WiFi</option>
+            <option value="Classroom">🏫 Classroom</option>
+            <option value="Hostel">🏠 Hostel</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="desc">Description *</label>
+          <textarea id="desc" class="form-control" maxlength="2000"
+            placeholder="Describe the issue in detail. Include location, time, and any relevant info…"></textarea>
+          <div class="char-hint"><span id="cc">0</span> / 2000</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Attach Image <span style="color:var(--gray-400);font-weight:400;">(optional)</span></label>
+          <div class="file-upload-area" id="upload-area">
+            <input type="file" id="img-input" accept="image/jpeg,image/png,image/gif,image/webp"/>
+            <div id="upload-ph">
+              <div class="upload-icon">🖼️</div>
+              <div class="upload-text">Click or drag an image here</div>
+              <div class="upload-hint">JPEG, PNG, GIF or WEBP — max 5 MB</div>
+            </div>
+            <img id="preview" class="preview-img" alt="Preview"/>
+          </div>
+          <div id="fname" style="margin-top:.35rem;font-size:.76rem;color:var(--gray-600);"></div>
+        </div>
+
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+          <button class="btn btn-primary" id="submit-btn" style="flex:1;">Submit Complaint</button>
+          <a href="student-dashboard.html" class="btn btn-outline" style="flex:0 0 auto;">Cancel</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="../js/api.js"></script>
+<script>
+  let selectedFile = null;
+
+  // Guard
+  (async () => {
+    const user = await Auth.me();
+    if (!user || user.role !== 'STUDENT') { location.href = 'index.html'; return; }
+    sessionStorage.setItem('cp_user', JSON.stringify(user));
+    initNavbar('index.html');
+  })();
+
+  // Char counter
+  document.getElementById('desc').addEventListener('input', function () {
+    document.getElementById('cc').textContent = this.value.length;
+  });
+
+  // Image preview
+  document.getElementById('img-input').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5 MB', 'error');
+      this.value = '';
+      return;
+    }
+    selectedFile = file;
+    document.getElementById('fname').textContent = 'Selected: ' + file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const prev = document.getElementById('preview');
+      prev.src = e.target.result;
+      prev.style.display = 'block';
+      document.getElementById('upload-ph').style.opacity = '.4';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    const category    = document.getElementById('cat').value;
+    const description = document.getElementById('desc').value.trim();
+    const errEl       = document.getElementById('err');
+    const okEl        = document.getElementById('success');
+    const btn         = document.getElementById('submit-btn');
+
+    errEl.classList.remove('show');
+    okEl.classList.remove('show');
+
+    if (!category)             { errEl.textContent = 'Please select a category.';                   errEl.classList.add('show'); return; }
+    if (description.length < 10) { errEl.textContent = 'Description must be at least 10 characters.'; errEl.classList.add('show'); return; }
+
+    btn.disabled  = true;
+    btn.innerHTML = '<span class="spinner"></span> Submitting…';
+
+    try {
+      await ComplaintAPI.submit({ category, description, imageFile: selectedFile });
+      okEl.textContent = '✅ Complaint submitted successfully! Redirecting…';
+      okEl.classList.add('show');
+      setTimeout(() => location.href = 'student-dashboard.html', 1800);
+    } catch (err) {
+      errEl.textContent = err.message || 'Failed to submit.';
+      errEl.classList.add('show');
+      btn.disabled  = false;
+      btn.textContent = 'Submit Complaint';
+    }
+  });
+</script>
+</body>
+</html>

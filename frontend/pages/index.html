@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Student Login — Campus Portal</title>
+  <link rel="stylesheet" href="../css/styles.css"/>
+</head>
+<body>
+<div class="login-page">
+
+  <!-- Hero -->
+  <div class="login-hero">
+    <div class="hero-badge">🎓 Student Portal</div>
+    <h1 class="hero-title">Report Campus<br><em>Issues Instantly</em></h1>
+    <p class="hero-desc">Your voice matters. Use this portal to report maintenance, facilities, and infrastructure issues directly to campus administration.</p>
+    <div class="hero-features">
+      <div class="feature-item"><span class="feature-dot"></span>Submit complaints with photo evidence</div>
+      <div class="feature-item"><span class="feature-dot"></span>Track real-time resolution status</div>
+      <div class="feature-item"><span class="feature-dot"></span>No password needed — just your EN number</div>
+      <div class="feature-item"><span class="feature-dot"></span>Data securely stored in MySQL database</div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="login-form-area">
+    <div class="login-card fade-in-up">
+      <div class="login-card-header">
+        <h2>Student Login</h2>
+        <p>Enter your Enrollment Number to continue</p>
+      </div>
+
+      <div id="err" class="alert alert-error"></div>
+
+      <div class="form-group">
+        <label class="form-label" for="en">Enrollment Number (EN)</label>
+        <input id="en" class="form-control" type="text" placeholder="e.g. EN24156683"
+               maxlength="20" autocomplete="off" spellcheck="false"/>
+      </div>
+
+      <button class="btn btn-primary" id="login-btn">Continue to Dashboard</button>
+
+      <div class="login-switch">
+        <p>Admin?</p>
+        <a href="admin-login.html">Go to Admin Login →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="../js/api.js"></script>
+<script>
+  // If already logged in as student, skip login page
+  (async () => {
+    const user = await Auth.me();
+    if (user && user.role === 'STUDENT') {
+      sessionStorage.setItem('cp_user', JSON.stringify(user));
+      location.href = 'student-dashboard.html';
+    }
+  })();
+
+  async function doLogin() {
+    const enNumber = document.getElementById('en').value.trim();
+    const errEl    = document.getElementById('err');
+    const btn      = document.getElementById('login-btn');
+    errEl.classList.remove('show');
+
+    if (!enNumber) {
+      errEl.textContent = 'Please enter your Enrollment Number.';
+      errEl.classList.add('show');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Checking…';
+
+    try {
+      const data = await Auth.loginStudent(enNumber);
+      sessionStorage.setItem('cp_user', JSON.stringify(data));
+      location.href = 'student-dashboard.html';
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.add('show');
+      btn.disabled    = false;
+      btn.textContent = 'Continue to Dashboard';
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', doLogin);
+  document.getElementById('en').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>
