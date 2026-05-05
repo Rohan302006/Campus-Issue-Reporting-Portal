@@ -1,5 +1,6 @@
 # Ignore Backend dependencies
 backend/node_modules/
+backend/uploads/
 backend/.env
 .env
 node_modules
@@ -8,6 +9,7 @@ node_modules
 backend/node_modules/
 frontend/.build
 frontend/dist
+frontend/.env
 
 # OS files
 .DS_Store
